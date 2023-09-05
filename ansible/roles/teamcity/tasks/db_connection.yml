@@ -1,0 +1,49 @@
+---
+
+# tasks file for db connector setup
+
+- name: Install mysql connector
+  become: true
+  block:
+    - name: Create mysql-connector directory
+      ansible.builtin.file:
+        path: "{{ teamcity_server_mysql_connector_dir }}"
+        state: directory
+        owner: "{{ tooling_teamcity_svc }}"
+        group: "{{ tooling_teamcity_svc_grp }}"
+        mode: u=rwx,g=rx,o=rx
+
+    - name: Create jbdc directory
+      ansible.builtin.file:
+        path: "{{ teamcity_mysql_jbdc_dir }}"
+        state: directory
+        owner: "{{ tooling_teamcity_svc }}"
+        group: "{{ tooling_teamcity_svc_grp }}"
+        mode: u=rwx,g=rx,o=rx
+
+    - name: Download mysql connector
+      ansible.builtin.get_url:
+        url: "https://cdn.mysql.com/Downloads/Connector-J/mysql-connector-j-{{ teamcity_server_mysql_connector_version }}.tar.gz"
+        dest: "{{ teamcity_server_mysql_connector_dir }}"
+        owner: "{{ tooling_teamcity_svc }}"
+        group: "{{ tooling_teamcity_svc_grp }}"
+        mode: u=rwx,g=rx,o=rx
+
+    - name: Extract mysql connector
+      ansible.builtin.unarchive:
+        src: "{{ teamcity_server_mysql_connector_dir }}/mysql-connector-j-{{ teamcity_server_mysql_connector_version }}.tar.gz"
+        dest: "{{ teamcity_server_mysql_connector_dir }}"
+        owner: "{{ tooling_teamcity_svc }}"
+        group: "{{ tooling_teamcity_svc_grp }}"
+        mode: u=rwx,g=rx,o=rx
+        remote_src: true
+
+    - name: Create mysql-connector symlink
+      ansible.builtin.file:
+        src: "{{ teamcity_server_mysql_connector_dir }}/mysql-connector-j-{{ teamcity_server_mysql_connector_version }}/\
+mysql-connector-j-{{ teamcity_server_mysql_connector_version }}.jar"
+        dest: "{{ teamcity_mysql_jbdc_dir }}/mysql-connector-java-{{ teamcity_server_mysql_connector_version }}.jar"
+        state: link
+        owner: "{{ tooling_teamcity_svc }}"
+        group: "{{ tooling_teamcity_svc_grp }}"
+        mode: u=rwx,g=rx,o=rx

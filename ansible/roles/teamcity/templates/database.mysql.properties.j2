@@ -1,0 +1,16 @@
+# See documentation at http://confluence.jetbrains.com/display/TCD8/Setting+up+an+External+Database
+
+# Database: MySQL  
+
+connectionUrl=jdbc:mysql://{{ teamcity_server_mysql_database_url }}/{{ teamcity_server_mysql_db_name }}?sslaccept=strict
+connectionProperties.user={{ teamcity_server_mysql_db_user }}
+connectionProperties.password={{ teamcity_server_mysql_db_password }}
+
+# The maximum number of connections TeamCity can open on database server.
+maxConnections=50
+
+# Specifies whether TeamCity should check each jdbc connection before use.
+# It reduces the system performance but avoids cases when the system uses
+# a connection that was closed by the database server due to a time-out or this
+# connection was broken during the previous operation.
+testOnBorrow=false

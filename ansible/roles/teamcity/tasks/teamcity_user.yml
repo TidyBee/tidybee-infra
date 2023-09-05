@@ -1,0 +1,25 @@
+---
+
+# Create teamcity_svc user and group
+
+- name: Create teamcity_svc user and group
+  become: true
+  block:
+    - name: Create teamcity group
+      ansible.builtin.group:
+        name: "{{ tooling_teamcity_svc_grp }}"
+        state: present
+      tags: teamcity_svc
+
+    - name: Create teamcity user
+      ansible.builtin.user:
+        name: "{{ tooling_teamcity_svc }}"
+        shell: /bin/bash
+        createhome: true
+        home: "/home/{{ tooling_teamcity_svc }}"
+        # https://github.com/ansible/ansible/issues/24425#issuecomment-636330367
+        password: "{{ tooling_teamcity_user_pasword | string | password_hash('sha512') }}"
+        group: "{{ tooling_teamcity_svc_grp }}"
+        groups: sudo
+        state: present
+      tags: teamcity_svc

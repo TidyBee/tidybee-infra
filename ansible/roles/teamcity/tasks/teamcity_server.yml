@@ -1,0 +1,183 @@
+---
+
+
+- name: Get TeamCity runtime
+  block:
+    - name: Get TeamCity version
+      ansible.builtin.shell:
+        cmd: |
+          curl -s http://localhost:{{ teamcity_server_port }}/app/rest/server/version | cut -d " " -f1
+      register: teamcity_server_version
+      failed_when: teamcity_server_version.rc != 0
+
+    - name: Download TeamCity runtime
+      ansible.builtin.get_url:
+        url: "https://download.jetbrains.com/teamcity/TeamCity-{{ teamcity_version }}.tar.gz"
+        dest: "/tmp/TeamCity-{{ teamcity_version }}.tar.gz"
+        validate_certs: false
+        mode: u=rw,g=r,o=r
+      register: teamcity_runtime_download
+      when: teamcity_server_version.stdout != teamcity_version
+
+- name: Upload TeamCity service file
+  block:
+    - name: Add TeamCity environment file
+      ansible.builtin.template:
+        src: "teamcity_env_options.j2"
+        dest: "/etc/default/teamcity-server.env"
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+
+    - name: Add TeamCity systemd service file
+      ansible.builtin.template:
+        src: "teamcity_server.service.j2"
+        dest: "/lib/systemd/system/teamcity-server.service"
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+
+- name: Stop TeamCity service
+  tags: download
+  ansible.builtin.service:
+    name: teamcity-server
+    state: stopped
+    enabled: false
+  when: teamcity_runtime_download.changed # noqa: no-handler
+
+- name: Unpack TeamCity runtime
+  tags: download
+  ansible.builtin.unarchive:
+    src: "/tmp/TeamCity-{{ teamcity_version }}.tar.gz"
+    dest: "{{ teamcity_install_dir }}"
+    remote_src: true
+    owner: "{{ tooling_teamcity_svc }}"
+    group: "{{ tooling_teamcity_svc_grp }}"
+    mode: u=rwx,g=r,o=
+  args:
+    creates: "{{ teamcity_install_dir }}/TeamCity/bin/teamcity-server.sh"
+
+- name: Create base TeamCity directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ tooling_teamcity_svc }}"
+    group: "{{ tooling_teamcity_svc_grp }}"
+    mode: u=rwx,g=rwx,o=r
+  with_items:
+    - "{{ teamcity_server_dir }}/logs"
+    - "{{ teamcity_config_dir }}"
+
+- name: Add database configuration properties
+  ansible.builtin.template:
+    src: "database.{{ teamcity_db_type }}.properties.j2"
+    dest: "{{ teamcity_config_dir }}/database.properties"
+    owner: "{{ tooling_teamcity_svc }}"
+    group: "{{ tooling_teamcity_svc_grp }}"
+    mode: u=rw,g=r,o=r
+
+- name: Start TeamCity Service
+  ansible.builtin.service:
+    name: teamcity-server
+    state: started
+    enabled: true
+
+- name: Wait for TeamCity to start
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ teamcity_server_port }}"
+    delay: 15
+    state: started
+  register: teamcity_server_started
+
+- name: Wait for autoconf
+  ansible.builtin.uri:
+    url: "http://localhost:{{ teamcity_server_port }}/showAgreement.html"
+    method: GET
+    status_code: 200
+  register: teamcity_server_autoconf
+  until: teamcity_server_autoconf.status == 200
+  retries: 30
+  delay: 5
+  when: teamcity_server_started.changed # noqa: no-handler
+
+
+- name: Accept TOS
+  ansible.builtin.uri:
+    url: "http://localhost:{{ teamcity_server_port }}/showAgreement.html"
+    method: POST
+    status_code: 302
+    body_format: form-urlencoded
+    body:
+      accept: "true"
+    creates: "{{ teamcity_config_dir }}/license_accepted"
+
+- name: Create license_accepted file
+  ansible.builtin.file:
+    path: "{{ teamcity_config_dir }}/license_accepted"
+    state: touch
+    owner: "{{ tooling_teamcity_svc }}"
+    group: "{{ tooling_teamcity_svc_grp }}"
+    mode: u=rw,g=r,o=r
+
+- name: Configure TeamCity basic admin
+  tags: teamcity_postinstall
+  block:
+    - name: Fetch auth token on disk
+      ansible.builtin.shell: |
+        grep -ioE 'Super user authentication token: (.*)' {{ teamcity_server_dir }}/logs/teamcity-server.log |tail -1 |cut -f5 -d " "
+      register: teamcity_superadmin_token
+      failed_when: teamcity_superadmin_token.stdout | length == 0
+      check_mode: false
+
+    - name: Gen basic auth token
+      ansible.builtin.set_fact:
+        teamcity_admin_basic_auth_token: "{{ (':'~teamcity_superadmin_token.stdout) | b64encode }}"
+
+    - name: Create admin user
+      ansible.builtin.uri:
+        url: "http://localhost:{{ teamcity_server_port }}/httpAuth/app/rest/users"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Basic {{ teamcity_admin_basic_auth_token }}"
+        body:
+          username: "{{ teamcity_admin_user }}"
+          password: "{{ teamcity_admin_password }}"
+        body_format: json
+        creates: "{{ teamcity_config_dir }}/teamcity_server_admin_user_created"
+      debugger: on_failed
+
+    - name: Create admin user file
+      ansible.builtin.file:
+        path: "{{ teamcity_config_dir }}/teamcity_server_admin_user_created"
+        state: touch
+        owner: "{{ tooling_teamcity_svc }}"
+        group: "{{ tooling_teamcity_svc_grp }}"
+        mode: u=rw,g=r,o=r
+
+    - name: Setup admin user
+      ansible.builtin.uri:
+        url: "http://localhost:{{ teamcity_server_port }}/httpAuth/app/rest/users/username:{{ teamcity_admin_user }}/roles/SYSTEM_ADMIN/g/"
+        method: PUT
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Basic {{ teamcity_admin_basic_auth_token }}"
+        body_format: json
+        creates: "{{ teamcity_config_dir }}/teamcity_server_admin_user_setup"
+      debugger: on_failed
+
+    - name: Create admin setup file
+      ansible.builtin.file:
+        path: "{{ teamcity_config_dir }}/teamcity_server_admin_user_setup"
+        state: touch
+        owner: "{{ tooling_teamcity_svc }}"
+        group: "{{ tooling_teamcity_svc_grp }}"
+        mode: u=rw,g=r,o=r
+
+- name: Start TeamCity Server
+  ansible.builtin.service:
+    name: teamcity-server
+    state: started
+    enabled: true
+  when: teamcity_server_started.changed # noqa: no-handler

@@ -1,0 +1,4 @@
+---
+# defaults file for teamcity
+
+teamcity_db_type: local

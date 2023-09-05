@@ -1,0 +1,28 @@
+---
+# tasks file for teamcity
+
+- name: Create teamcity service account group and user
+  tags: system
+  ansible.builtin.include_tasks: teamcity_user.yml
+
+- name: Configure mysql db connector
+  tags: system
+  ansible.builtin.include_tasks: db_connection.yml
+  when: teamcity_db_type == 'mysql'
+
+- name: Configure local db connector
+  tags: system
+  ansible.builtin.include_tasks: db_connection.yml
+  when: teamcity_db_type == 'local'
+
+- name: Configure teamcity server
+  tags: system
+  ansible.builtin.include_tasks: teamcity_server.yml
+  register: teamcity_admin_basic_auth_token
+
+# - name: Import license
+#   ansible.builtin.include_tasks: teamcity_license.yml
+
+- name: Configure teamcity users
+  tags: teamcity-user-creation
+  ansible.builtin.include_tasks: configure_teamcity_users.yml

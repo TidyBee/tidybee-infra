@@ -1,0 +1,8 @@
+---
+# handlers file for teamcity
+
+- name: Restart teamcity server
+  ansible.builtin.service:
+    name: teamcity
+    state: restarted
+  when: teamcity_install.changed

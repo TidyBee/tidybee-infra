@@ -1,0 +1,6 @@
+---
+- name: teamcity
+  hosts: tools.tidybee.fr
+  become: true
+  roles:
+    - teamcity

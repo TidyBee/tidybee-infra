@@ -1,0 +1,6 @@
+---
+- name: nginx
+  hosts: tools.tidybee.fr
+  become: true
+  roles:
+    - nginx

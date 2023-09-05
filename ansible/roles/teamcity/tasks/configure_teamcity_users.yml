@@ -1,0 +1,28 @@
+---
+
+- name: Craft tidyadmin auth token
+  tags: teamcity-user-creation
+  ansible.builtin.set_fact:
+    teamcity_admin_basic_auth_token: "{{ (teamcity_admin_user~':'~teamcity_admin_password) | b64encode }}"
+  failed_when: teamcity_admin_basic_auth_token is not defined
+  changed_when: false
+
+- name: Create TeamCity users
+  tags: teamcity-user-creation
+  ansible.builtin.uri:
+    url: "http://localhost:{{ teamcity_server_port }}/app/rest/users"
+    method: POST
+    headers:
+      Content-Type: "application/json"
+      Authorization: "Basic {{ teamcity_admin_basic_auth_token }}"
+    body_format: json
+    body:
+      username: "{{ item.username }}"
+      password: "{{ item.password }}"
+      roles:
+        role:
+          - roleId: "{{ item.role }}"
+            scope: "{{ item.scope }}"
+    validate_certs: false
+  with_items: "{{ teamcity_users }}"
+  debugger: on_failed

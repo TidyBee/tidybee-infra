@@ -1,0 +1,19 @@
+---
+
+- name: "Check config folder presence"
+  ansible.builtin.file:
+    path: "{{ teamcity_config_dir }}"
+    state: directory
+    mode: '0755'
+  register: teamcity_config_dir_result
+  failed_when: teamcity_config_dir_result.stat.exists == False
+
+- name: "Upload license keys"
+  ansible.builtin.lineinfile:
+    dest: "{{ teamcity_server_config_dir }}/license.keys"
+    line: "{{ item }}"
+    owner: "{{ tooling_teamcity_svc }}"
+    group: "{{ tooling_teamcity_svc_grp }}"
+    create: true
+    mode: '0644'
+  with_items: "{{ teamcity_server_license_keys }}"
