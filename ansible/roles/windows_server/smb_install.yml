@@ -1,0 +1,6 @@
+---
+- name: Mount SMB share
+  hosts: windows
+  become: true
+  roles:
+    - smb_install

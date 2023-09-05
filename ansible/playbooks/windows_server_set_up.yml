@@ -1,0 +1,11 @@
+- name: Windows server set up
+  hosts: windows
+  gather_facts: true
+  become: true
+  roles:
+    - name: ssh install
+      role: roles/ssh_install
+      tags: ssh_install
+    - name : smb share install
+      role: roles/smb_install
+      tags: smb_install
