@@ -1,12 +1,9 @@
 ---
-- name: Windows server set up
-  hosts: windows
+- name: Set up windows server
+  hosts: prod.tidybee.fr
   gather_facts: true
   become: true
   roles:
-    - name: ssh install
-      role: roles/ssh_install
-      tags: ssh_install
-    - name : smb share
-      role: roles/smb_share
-      tags: smb_share
+    - name: smb_mount
+      role: roles/smb_mount
+      tags: smb_mount
