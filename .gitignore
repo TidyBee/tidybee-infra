@@ -1,0 +1,6 @@
+
+ansible/.vault_pass
+
+.vscode/
+.idea
+inventory
