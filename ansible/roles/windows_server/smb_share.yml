@@ -3,4 +3,4 @@
   hosts: windows
   become: true
   roles:
-    - smb_install
+    - smb_share
