@@ -1,0 +1,30 @@
+---
+- name: smb_mount
+  hosts: prod.tidybee.fr
+  become: true
+  roles:
+    - smb_mount
+  tasks:
+    - name: Create mount directory on local machine
+      ansible.builtin.file:
+        path: /mnt/smbshare
+        state: directory
+        mode: '0755'
+      become: yes
+
+    - name: Mount SMB share
+      ansible.builtin.mount:
+        path: /mnt/smbshare
+        src: 'C:\smbshare'
+        fstype: cifs
+        opts: "{{ hostvars[prod.tidybee.fr]['smb_mount_opts'] }}"
+        state: mounted
+      become: yes
+
+    - name: Ensure the SMB share is mounted on boot (local machine)
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: '\\\\WindowsServer\\ShareName /mnt/smbshare cifs {{ hostvars['windows_host']['smb_mount_opts'] }} 0 0'
+      become: yes
+
+

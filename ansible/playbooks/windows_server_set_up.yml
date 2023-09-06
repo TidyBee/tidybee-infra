@@ -1,0 +1,9 @@
+---
+- name: Set up windows server
+  hosts: prod.tidybee.fr
+  gather_facts: true
+  become: true
+  roles:
+    - name: smb_mount
+      role: roles/smb_mount
+      tags: smb_mount

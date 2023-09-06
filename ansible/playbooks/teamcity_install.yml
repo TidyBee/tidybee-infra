@@ -1,3 +1,4 @@
+---
 - name: Install TeamCity
   hosts: tools.tidybee.fr
   gather_facts: true
