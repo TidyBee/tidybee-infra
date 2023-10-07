@@ -1,7 +1,7 @@
 ---
 # vars file for teamcity
 
-teamcity_version: 2023.05.1
+teamcity_version: 2023.05.4
 
 teamcity_server_port: 8111
 
